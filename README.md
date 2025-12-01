@@ -208,5 +208,6 @@ These steps let you scale from the default single-agent loop to a fully collabor
 2. Enrich GEPA trace records with tool usage stats to steer prompt updates more precisely.
 3. Add concurrency controls and progress streaming to support long-running goals with multiple actors.
 4. Integrate a front-end dashboard that visualises task checklists and GEPA metrics live.
+5. Replicate synthetic data judge from Deepseek V3.2 speciale for data generation pipeline.
 
 ---
