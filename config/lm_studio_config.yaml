@@ -1,0 +1,9 @@
+model: lmstudio-serve
+provider: vllm/remote
+api_base: http://localhost:1234
+request_timeout: 30
+extra_params:
+  endpoints: /v1/chat/completions
+  max_tokens: 4096
+  temperature: 0.2
+  top_p: 0.9

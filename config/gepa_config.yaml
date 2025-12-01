@@ -1,0 +1,8 @@
+num_candidates: 3
+max_rollouts: 5
+reflection_model: mock-reflection
+reflection_minibatch_size: 2
+use_merge: true
+num_threads: 2
+skip_perfect_score: true
+trace_path: traces/gepa_history.jsonl

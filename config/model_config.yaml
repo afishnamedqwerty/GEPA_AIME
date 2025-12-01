@@ -1,0 +1,8 @@
+model_id: allenai/Olmo-3-7B-think
+llm:
+  max_model_len: 16000
+  gpu_memory_utilization: 0.9
+sampling_params:
+  temperature: 0.6
+  top_p: 0.95
+  max_tokens: 4096

@@ -1,0 +1,31 @@
+{
+  "default": [
+    {
+      "name": "web_search",
+      "description": "Search synthetic knowledge base for answers",
+      "implementation": "src.tools.web_tools:WebSearchTool"
+    },
+    {
+      "name": "read_file",
+      "description": "Read a text file from the current workspace",
+      "implementation": "src.tools.file_tools:ReadFileTool"
+    },
+    {
+      "name": "list_dir",
+      "description": "List directory contents in the workspace",
+      "implementation": "src.tools.file_tools:ListDirectoryTool"
+    },
+    {
+      "name": "write_file",
+      "description": "Write content to a workspace file, creating parents as needed",
+      "implementation": "src.tools.file_tools:WriteFileTool"
+    }
+  ],
+  "progress": [
+    {
+      "name": "update_progress",
+      "description": "Apply structured progress updates to the manager",
+      "implementation": "src.tools.update_progress:UpdateProgressTool"
+    }
+  ]
+}
