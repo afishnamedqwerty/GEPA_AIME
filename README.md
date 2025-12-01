@@ -70,7 +70,7 @@ Each module is test covered via the `tests/` suite so the system remains verifia
 
 4. **Execute the test suite**
    ```bash
-   python -m unittest discover -s tests -p 'test*.py' -v
+   python3 -m unittest discover -s tests -p 'test*.py' -v
    ```
 
 ## LLM Integration
