@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Callable, Dict, Iterable, Optional, Tuple
 
 from ..tools.base_tool import BaseTool, ToolContext
 from ..utils import logging as log_utils
@@ -31,8 +31,10 @@ class DynamicActor:
         self.progress_mgr = progress_mgr
         self.logger = log_utils.get_logger(__name__)
 
-    def execute(self, task: TaskNode, goal: str) -> ActorOutput:
+    def execute(self, task: TaskNode, goal: str, on_update: Optional[Callable[[], None]] = None) -> ActorOutput:
         self.progress_mgr.mark_in_progress(task.task_id)
+        self.progress_mgr.record_history({"task_id": task.task_id, "status": TaskStatus.IN_PROGRESS.value, "notes": "started"})
+        self._push_update(on_update)
         steps: list[ActorStep] = []
         context = ToolContext(task=task.description, goal=goal, progress_snapshot=self.progress_mgr.to_markdown())
 
@@ -50,6 +52,8 @@ class DynamicActor:
                 summary = observation
                 self.logger.warning("Tool execution failure", exc_info=exc)
             steps.append(ActorStep(thought=thought, action=tool.name, observation=observation))
+            self.progress_mgr.record_history({"task_id": task.task_id, "status": TaskStatus.IN_PROGRESS.value, "notes": observation[:160]})
+            self._push_update(on_update)
 
         final_result = summary or f"Completed task '{task.description}' without external tools."
         steps.append(
@@ -60,7 +64,16 @@ class DynamicActor:
             )
         )
         self.progress_mgr.mark_complete(task.task_id, notes=final_result)
+        self._push_update(on_update)
         return ActorOutput(task_id=task.task_id, status=TaskStatus.COMPLETE, result=final_result, steps=steps)
+
+    def _push_update(self, on_update: Optional[Callable[[], None]]) -> None:
+        if not on_update:
+            return
+        try:
+            on_update()
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self.logger.debug("Progress callback failed: %s", exc)
 
     def _pick_tool(self, task: TaskNode) -> Optional[Tuple[BaseTool, dict]]:
         description = task.description.lower()

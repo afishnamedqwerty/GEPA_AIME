@@ -48,7 +48,7 @@ default_llm = LLM(model=model_id, **llm_kwargs)
 sampling_params = SamplingParams(**sampling_kwargs)
 
 
-def build_workflow(default_llm) -> AIMEWorkflow:
+def build_workflow(default_llm, state_callback=None) -> AIMEWorkflow:
     llm_config = load_model_runtime_config() #load_llm_config()
     gepa_config = load_gepa_config()
     tool_bundles = load_tool_bundles()
@@ -64,57 +64,101 @@ def build_workflow(default_llm) -> AIMEWorkflow:
         window_size=gepa_config.max_rollouts,
         trace_path=gepa_config.trace_path,
     )
-    return AIMEWorkflow(planner, factory, progress_mgr, gepa)
+    return AIMEWorkflow(planner, factory, progress_mgr, gepa, on_update=state_callback)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Chat with the configured LLM. Use /goal <text> to start the autonomous workflow."
     )
-    parser.parse_args()
+    parser.add_argument(
+        "-viz",
+        "--viz",
+        action="store_true",
+        help="Serve the local dashboard and stream workflow updates to it.",
+    )
+    parser.add_argument(
+        "--viz-port",
+        type=int,
+        default=8765,
+        help="Port for the local dashboard (default: 8765).",
+    )
+    args = parser.parse_args()
 
     setup_logger(level="INFO", trace_format="text")
     #llm = create_llm_client(load_llm_config())
     llm = default_llm
+    dashboard_state = None
+    dashboard_server = None
+    state_callback = None
+    stop_server = None
+    if args.viz:
+        from src.utils.viz_server import DashboardState, start_dashboard_server, stop_dashboard_server
+
+        dashboard_state = DashboardState()
+        state_callback = dashboard_state.set_state
+        try:
+            dashboard_server = start_dashboard_server(dashboard_state, port=args.viz_port)
+            print(f"[viz] Dashboard running at http://127.0.0.1:{args.viz_port}")
+            stop_server = stop_dashboard_server
+        except OSError as exc:  # pragma: no cover - runtime safeguard
+            print(f"[viz] Failed to start dashboard server: {exc}")
+            dashboard_state = None
+            state_callback = None
+            stop_server = None
 
     print("Enter a question to chat with the model. Type /goal <text> to launch the workflow or /exit to quit.")
-    while True:
-        try:
-            user_input = input("> ").strip()
-        except (KeyboardInterrupt, EOFError):
-            print()
-            break
+    try:
+        while True:
+            try:
+                user_input = input("> ").strip()
+            except (KeyboardInterrupt, EOFError):
+                print()
+                break
 
-        if not user_input:
-            continue
-        if user_input.lower() in {"/exit", "/quit"}:
-            break
-        if user_input.startswith("/goal"):
-            goal = user_input[len("/goal") :].strip()
-            if not goal:
-                print("Please provide a goal after /goal.")
+            if not user_input:
                 continue
-            workflow = build_workflow(llm)
-            report: WorkflowReport = workflow.run(goal)
-            print(json.dumps(asdict(report), indent=2))
-            continue
+            if user_input.lower() in {"/exit", "/quit"}:
+                break
+            if user_input.startswith("/goal"):
+                goal = user_input[len("/goal") :].strip()
+                if not goal:
+                    print("Please provide a goal after /goal.")
+                    continue
+                workflow = build_workflow(llm, state_callback=state_callback)
+                if dashboard_state:
+                    dashboard_state.set_state(
+                        {
+                            "tasks": [],
+                            "gepa": {},
+                            "history": [],
+                            "tui": "Starting workflow...",
+                            "rationale": "",
+                        }
+                    )
+                report: WorkflowReport = workflow.run(goal)
+                print(json.dumps(asdict(report), indent=2))
+                continue
 
-        try:
-            raw_response = llm.generate(user_input, sampling_params=sampling_params)
-            if isinstance(raw_response, str):
-                response_text = raw_response
-            else:
-                first = raw_response[0]
-                if hasattr(first, "outputs") and first.outputs:
-                    response_text = first.outputs[0].text
-                elif hasattr(first, "text"):
-                    response_text = first.text
+            try:
+                raw_response = llm.generate(user_input, sampling_params=sampling_params)
+                if isinstance(raw_response, str):
+                    response_text = raw_response
                 else:
-                    response_text = str(first)
-        except Exception as exc:  # pragma: no cover - defensive fallback for runtime errors
-            print(f"[error] Failed to query model: {exc}")
-            continue
-        print(response_text.strip())
+                    first = raw_response[0]
+                    if hasattr(first, "outputs") and first.outputs:
+                        response_text = first.outputs[0].text
+                    elif hasattr(first, "text"):
+                        response_text = first.text
+                    else:
+                        response_text = str(first)
+            except Exception as exc:  # pragma: no cover - defensive fallback for runtime errors
+                print(f"[error] Failed to query model: {exc}")
+                continue
+            print(response_text.strip())
+    finally:
+        if stop_server:
+            stop_server(dashboard_server)
 
 
 if __name__ == "__main__":

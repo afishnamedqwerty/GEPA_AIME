@@ -103,5 +103,18 @@ class LightweightOnlineGEPA:
         elif best_prompt:
             self.best_prompt = best_prompt
 
+    def metrics(self) -> Dict[str, object]:
+        payload = [{"status": "complete" if ex.score >= 0.9 else "failed"} for ex in self.examples]
+        composite_score = self.metric(payload) if payload else 0.0
+        latest = self.examples[-1] if self.examples else None
+        scores = [ex.score for ex in self.examples]
+        return {
+            "composite_score": composite_score,
+            "total_traces": len(self.examples),
+            "best_prompt": self.best_prompt or "",
+            "latest_score": latest.score if latest else None,
+            "scores": scores,
+        }
+
 
 __all__ = ["LightweightOnlineGEPA"]

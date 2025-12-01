@@ -73,6 +73,12 @@ Each module is test covered via the `tests/` suite so the system remains verifia
    python3 -m unittest discover -s tests -p 'test*.py' -v
    ```
 
+### Live Dashboard (optional)
+
+- Run `python3 src/main.py -viz` to start the local dashboard server (default port `8765`).
+- Open `http://127.0.0.1:8765` to see the React dashboard that streams the ordered checklist, live GEPA metrics (composite + timeline), and a TUI-style live view of the markdown checklist that updates after each action.
+- The dashboard is off by default; omit `-viz` to keep the CLI-only experience.
+
 ## LLM Integration
 
 GEPA-AIME isolates language model dependencies inside `src/utils/llm.py` and `config/model_config.yaml`.
